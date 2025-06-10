@@ -5,24 +5,11 @@ import time # We'll use time to generate unique IDs for courses
 # --- Page and Style Configuration ---
 st.set_page_config(page_title="GPA Jotter", layout="centered")
 
-# Custom CSS to make the semester expanders look better
+# Custom CSS (removing the expander specific styles as they won't apply)
 st.markdown("""
 <style>
-div[data-testid="stExpander"] summary {
-    background-color: #262730 !important;
-    color: #FFFFFF !important;
-    font-size: 1.1rem !important;
-    padding: 1rem !important;
-    border-radius: 0.5rem !important;
-    border: 1px solid #262730 !important;
-}
-div[data-testid="stExpander"] summary svg {
-    color: #FFFFFF !important;
-}
-div[data-testid="stExpander"][open] > summary {
-    border-bottom-left-radius: 0 !important;
-    border-bottom-right-radius: 0 !important;
-}
+/* You can add other general styles here if needed */
+/* Removed specific expander styles as we are removing expanders */
 </style>
 """, unsafe_allow_html=True)
 
@@ -154,49 +141,52 @@ if not st.session_state.semesters:
     st.info("Click 'Add Semester' to get started!")
 
 # Iterate backwards for safe deletion during the loop
-# This loop naturally maintains the order of semesters as they are in the list.
 for i in range(len(st.session_state.semesters) - 1, -1, -1):
     semester = st.session_state.semesters[i]
     gpa = calculate_gpa(semester["courses"])
 
-    # The st.expander itself is not movable.
-    with st.expander(f"{semester['name']} - GPA: {gpa:.2f}"):
-        # Header for the course list
-        st.markdown("""
-        <div style="display: grid; grid-template-columns: 3fr 2fr 2fr 1fr; gap: 10px; font-weight: bold; margin-bottom: 10px;">
-            <div>Course Name</div>
-            <div>Grade</div>
-            <div>Credits</div>
-            <div>Action</div>
-        </div>
-        """, unsafe_allow_html=True)
+    # Instead of st.expander, use st.container or just direct rendering within a divider
+    st.markdown(f"## {semester['name']} - GPA: {gpa:.2f}") # Display semester name and GPA
+    st.markdown("---") # Visual separator between semesters
 
-        # Loop through courses and create their widgets
-        for course in semester["courses"]:
-            course_id = course["id"]
-            cols = st.columns([3, 2, 2, 1])
-            
-            with cols[0]:
-                course["name"] = st.text_input(
-                    "Course Name", value=course["name"], key=f"name_{course_id}", label_visibility="collapsed"
-                )
-            with cols[1]:
-                course["grade"] = st.selectbox(
-                    "Grade", options=GRADE_POINTS.keys(), index=list(GRADE_POINTS.keys()).index(course["grade"]), key=f"grade_{course_id}", label_visibility="collapsed"
-                )
-            with cols[2]:
-                course["credits"] = st.number_input(
-                    "Credits", min_value=0, max_value=10, value=int(course["credits"]), key=f"credits_{course_id}", label_visibility="collapsed"
-                )
-            with cols[3]:
-                st.button(
-                    "🗑️", key=f"del_{course_id}", on_click=delete_course, args=[i, course_id]
-                )
+    # Header for the course list
+    st.markdown("""
+    <div style="display: grid; grid-template-columns: 3fr 2fr 2fr 1fr; gap: 10px; font-weight: bold; margin-bottom: 10px;">
+        <div>Course Name</div>
+        <div>Grade</div>
+        <div>Credits</div>
+        <div>Action</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-        # Semester-level action buttons
-        st.markdown("---")
-        c1, c2 = st.columns(2)
-        with c1:
-            st.button("➕ Add Course", key=f"add_course_{i}", on_click=add_course, args=[i])
-        with c2:
-            st.button("❌ Delete Semester", key=f"del_sem_{i}", on_click=delete_semester, args=[i], type="secondary")
+    # Loop through courses and create their widgets
+    for course in semester["courses"]:
+        course_id = course["id"]
+        cols = st.columns([3, 2, 2, 1])
+        
+        with cols[0]:
+            course["name"] = st.text_input(
+                "Course Name", value=course["name"], key=f"name_{course_id}", label_visibility="collapsed"
+            )
+        with cols[1]:
+            course["grade"] = st.selectbox(
+                "Grade", options=GRADE_POINTS.keys(), index=list(GRADE_POINTS.keys()).index(course["grade"]), key=f"grade_{course_id}", label_visibility="collapsed"
+            )
+        with cols[2]:
+            course["credits"] = st.number_input(
+                "Credits", min_value=0, max_value=10, value=int(course["credits"]), key=f"credits_{course_id}", label_visibility="collapsed"
+            )
+        with cols[3]:
+            st.button(
+                "🗑️", key=f"del_{course_id}", on_click=delete_course, args=[i, course_id]
+            )
+
+    # Semester-level action buttons
+    st.markdown("---") # Another separator after courses
+    c1, c2 = st.columns(2)
+    with c1:
+        st.button("➕ Add Course", key=f"add_course_{i}", on_click=add_course, args=[i])
+    with c2:
+        st.button("❌ Delete Semester", key=f"del_sem_{i}", on_click=delete_semester, args=[i], type="secondary")
+    
+    st.markdown("<br>", unsafe_allow_html=True) # Add some space between semesters for better readability
