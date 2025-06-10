@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPA Jotter</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+<body>
+
+    <div class="main-container">
+        <header>
+            <h2>GPA Jotter</h2>
+            <p>Track your semester and cumulative GPA with ease.</p>
+        </header>
+
+        <div class="cgpa-display">
+            <h3>Cumulative GPA (CGPA)</h3>
+            <span id="cgpa-value">0.00</span>
+        </div>
+
+        <div class="controls">
+            <button id="add-semester-btn"><i class="fas fa-plus"></i> Add Semester</button>
+            <button id="save-file-btn"><i class="fas fa-save"></i> Save to File</button>
+            <label for="load-file-input" class="file-label"><i class="fas fa-folder-open"></i> Load from File</label>
+            <input type="file" id="load-file-input" accept=".json" style="display: none;">
+            <button id="reset-btn" class="danger"><i class="fas fa-trash"></i> Reset All</button>
+        </div>
+
+        <div id="semesters-container">
+            </div>
+    </div>
+
+    <script src="script.js"></script>
+
+</body>
+</html>
