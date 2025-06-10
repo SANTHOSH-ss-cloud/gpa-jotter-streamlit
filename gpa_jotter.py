@@ -30,7 +30,22 @@ div[data-testid="stExpander"][open] > summary {
 # --- Grade System ---
 GRADE_POINTS = {"O": 10, "A+": 9, "A": 8, "B+": 7, "B": 6, "C+": 5, "C": 4}
 
-# --- State Management Callbacks (The Core Logic) ---
+# --- Data Migration Function (THE FIX) ---
+def ensure_course_ids(data):
+    """
+    Scans loaded data and adds unique IDs to any courses that are missing them.
+    This ensures compatibility with older data files.
+    """
+    for semester in data:
+        if "courses" in semester:
+            for course in semester["courses"]:
+                if "id" not in course:
+                    # Add a unique ID if it doesn't exist
+                    course["id"] = time.time()
+                    time.sleep(0.01) # Sleep briefly to ensure unique timestamps
+    return data
+
+# --- State Management Callbacks ---
 
 def add_semester():
     """Appends a new semester dictionary to the session state."""
@@ -114,16 +129,24 @@ with col2:
         use_container_width=True
     )
 with col3:
-    # Load from file
+    # --- UPDATED FILE LOADING LOGIC ---
     uploaded_file = st.file_uploader("📂 Load", type=["json"], label_visibility="collapsed")
     if uploaded_file:
         try:
-            st.session_state.semesters = json.load(uploaded_file)
-            st.rerun()
+            # Load data from the uploaded file
+            loaded_data = json.load(uploaded_file)
+            
+            # **FIX:** Ensure all courses have an 'id' for backward compatibility
+            migrated_data = ensure_course_ids(loaded_data)
+            
+            # Assign the fixed data to the session state
+            st.session_state.semesters = migrated_data
+            
+            st.rerun() # Rerun to display the loaded data
         except json.JSONDecodeError:
-            st.error("Invalid JSON file.")
+            st.error("Invalid JSON file. Please upload a valid JSON file.")
         except Exception as e:
-            st.error(f"An error occurred: {e}")
+            st.error(f"An error occurred while loading the file: {e}")
 
 
 # --- Semester and Course Rendering Loop ---
@@ -148,7 +171,7 @@ for i in range(len(st.session_state.semesters) - 1, -1, -1):
 
         # Loop through courses and create their widgets
         for course in semester["courses"]:
-            course_id = course["id"]
+            course_id = course["id"] # This line will no longer cause an error
             cols = st.columns([3, 2, 2, 1])
             
             with cols[0]:
