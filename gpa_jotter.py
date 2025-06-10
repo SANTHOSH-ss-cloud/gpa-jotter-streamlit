@@ -80,25 +80,30 @@ with col4:
         st.experimental_rerun()
 
 # Semester & course inputs
+# Temporary list to collect deletion requests
+to_delete = []
+
 for i, semester in enumerate(st.session_state.semesters):
-    gpa = calculate_gpa(semester['courses'])
-    with st.expander(f"{semester['name']} - GPA: {gpa}"):
-        new_courses = []
+    with st.expander(f"{semester['name']} - GPA: {calculate_gpa(semester['courses'])}"):
         for j, course in enumerate(semester["courses"]):
             cols = st.columns([3, 2, 2, 1])
             with cols[0]:
-                name = st.text_input("Course Name", course.get("name", ""), key=f"name_{i}_{j}")
+                course["name"] = st.text_input("Course Name (Optional)", course.get("name", ""), key=f"name_{i}_{j}")
             with cols[1]:
-                grade = st.selectbox("Grade", list(GRADE_POINTS.keys()), index=list(GRADE_POINTS.keys()).index(course.get("grade", "O")), key=f"grade_{i}_{j}")
+                course["grade"] = st.selectbox("Grade", list(GRADE_POINTS.keys()), index=list(GRADE_POINTS.keys()).index(course.get("grade", "O")), key=f"grade_{i}_{j}")
             with cols[2]:
-                credits = st.number_input("Credits", min_value=1, max_value=10, value=course.get("credits", 3), key=f"credits_{i}_{j}")
+                course["credits"] = st.number_input("Credits", min_value=1, max_value=10, value=course.get("credits", 3), key=f"credits_{i}_{j}")
             with cols[3]:
-                if st.button("🗑️", key=f"delete_{i}_{j}"):
-                    continue  # Skip adding this course (delete)
-            new_courses.append({"name": name, "grade": grade, "credits": credits})
-
-        st.session_state.semesters[i]["courses"] = new_courses
+                if st.button("🗑️", key=f"del_{i}_{j}"):
+                    to_delete.append((i, j))
 
         if st.button("➕ Add Course", key=f"add_course_{i}"):
             semester["courses"].append({"name": "", "grade": "O", "credits": 3})
-            st.experimental_rerun()
+
+# Now process deletion safely
+if to_delete:
+    for i, j in to_delete:
+        if j < len(st.session_state.semesters[i]["courses"]):
+            st.session_state.semesters[i]["courses"].pop(j)
+    st.experimental_rerun()
+
