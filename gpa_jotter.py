@@ -1,6 +1,8 @@
 import streamlit as st
 import json
-import time # We'll use time to generate unique IDs for courses
+import time
+import pandas as pd # Import pandas for easy CSV handling
+import io # Import io for in-memory file handling
 
 # --- Page and Style Configuration ---
 st.set_page_config(page_title="GPA Jotter", layout="centered")
@@ -15,7 +17,6 @@ st.markdown("""
 
 
 # --- Grade System ---
-# Added "N/A" with 0 points, as it signifies a failed course and should not contribute positively to GPA.
 GRADE_POINTS = {"O": 10, "A+": 9, "A": 8, "B+": 7, "B": 6, "C+": 5, "C": 4, "N/A": 0}
 
 # --- Data Migration Function (THE FIX) ---
@@ -72,12 +73,10 @@ def calculate_gpa(courses):
     for course in courses:
         grade = course.get("grade")
         credits = int(course.get("credits", 0))
-        # Only include valid grades (not "N/A") in GPA calculation if "N/A" means no points.
-        # However, it should still contribute to total credits if it represents a failed attempt.
         if grade in GRADE_POINTS and credits:
-            if grade != "N/A": # "N/A" will have 0 points, but still add credits for total credits.
+            if grade != "N/A":
                 total_points += GRADE_POINTS[grade] * credits
-            total_credits += credits # Credits always count if a course was taken
+            total_credits += credits
     return round(total_points / total_credits, 2) if total_credits > 0 else 0.0
 
 def calculate_cgpa():
@@ -88,10 +87,36 @@ def calculate_cgpa():
             grade = course.get("grade")
             credits = int(course.get("credits", 0))
             if grade in GRADE_POINTS and credits:
-                if grade != "N/A": # "N/A" will have 0 points, but still add credits for total credits.
+                if grade != "N/A":
                     total_points += GRADE_POINTS[grade] * credits
                 total_credits += credits
     return round(total_points / total_credits, 2) if total_credits > 0 else 0.0
+
+# --- File Saving Function for CSV ---
+def convert_to_csv(data):
+    """
+    Converts the semester data from session state into a CSV format.
+    Each row will represent a course with its semester details.
+    """
+    rows = []
+    for sem in data:
+        semester_name = sem["name"]
+        semester_gpa = calculate_gpa(sem["courses"]) # Calculate GPA for each semester
+        for course in sem["courses"]:
+            rows.append({
+                "Semester": semester_name,
+                "Semester GPA": semester_gpa,
+                "Course Name": course.get("name", ""),
+                "Grade": course.get("grade", ""),
+                "Credits": course.get("credits", 0)
+            })
+    
+    if not rows:
+        return "" # Return empty string if no data
+
+    df = pd.DataFrame(rows)
+    # Convert DataFrame to CSV string
+    return df.to_csv(index=False)
 
 # --- Main App ---
 
@@ -107,20 +132,34 @@ st.caption("Track your semester and cumulative GPA with ease.")
 st.markdown(f"### Cumulative GPA (CGPA):  \n<span style='color:green;font-size:38px'>{calculate_cgpa():.2f}</span>", unsafe_allow_html=True)
 
 # --- Top Level Controls ---
-col1, col2, col3 = st.columns([1.5, 1, 1])
+# Add a column for "Save to CSV"
+col1, col2, col3, col4 = st.columns([1.5, 1, 1, 1])
+
 with col1:
     st.button("➕ Add Semester", on_click=add_semester, use_container_width=True)
 
 with col2:
-    # Save to file
+    # Save to JSON file (kept as an option)
     st.download_button(
-        label="💾 Save",
+        label="💾 Save (JSON)",
         data=json.dumps(st.session_state.semesters, indent=4),
         file_name="gpa_data.json",
         mime="application/json",
         use_container_width=True
     )
+
 with col3:
+    # Save to CSV file
+    csv_string = convert_to_csv(st.session_state.semesters)
+    st.download_button(
+        label="📊 Save (CSV)",
+        data=csv_string,
+        file_name="gpa_data.csv",
+        mime="text/csv",
+        use_container_width=True
+    )
+
+with col4:
     # --- UPDATED FILE LOADING LOGIC ---
     uploaded_file = st.file_uploader("📂 Load", type=["json"], label_visibility="collapsed")
     if uploaded_file:
@@ -150,9 +189,8 @@ for i in range(len(st.session_state.semesters) - 1, -1, -1):
     semester = st.session_state.semesters[i]
     gpa = calculate_gpa(semester["courses"])
 
-    # Instead of st.expander, use st.container or just direct rendering within a divider
-    st.markdown(f"## {semester['name']} - GPA: {gpa:.2f}") # Display semester name and GPA
-    st.markdown("---") # Visual separator between semesters
+    st.markdown(f"## {semester['name']} - GPA: {gpa:.2f}")
+    st.markdown("---")
 
     # Header for the course list
     st.markdown("""
@@ -174,7 +212,6 @@ for i in range(len(st.session_state.semesters) - 1, -1, -1):
                 "Course Name", value=course["name"], key=f"name_{course_id}", label_visibility="collapsed"
             )
         with cols[1]:
-            # Handle cases where existing data might have grades not in the new GRADE_POINTS
             current_grade_index = 0
             if course["grade"] in GRADE_POINTS:
                 current_grade_index = list(GRADE_POINTS.keys()).index(course["grade"])
@@ -192,11 +229,11 @@ for i in range(len(st.session_state.semesters) - 1, -1, -1):
             )
 
     # Semester-level action buttons
-    st.markdown("---") # Another separator after courses
+    st.markdown("---")
     c1, c2 = st.columns(2)
     with c1:
         st.button("➕ Add Course", key=f"add_course_{i}", on_click=add_course, args=[i])
     with c2:
         st.button("❌ Delete Semester", key=f"del_sem_{i}", on_click=delete_semester, args=[i], type="secondary")
     
-    st.markdown("<br>", unsafe_allow_html=True) # Add some space between semesters for better readability
+    st.markdown("<br>", unsafe_allow_html=True)
