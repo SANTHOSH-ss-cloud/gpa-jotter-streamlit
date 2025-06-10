@@ -7,19 +7,17 @@ import io
 # --- Page and Style Configuration ---
 st.set_page_config(page_title="Calculate Your CGPA", layout="centered")
 
-# Custom CSS (removing the expander specific styles as they won't apply)
+# Custom CSS
 st.markdown("""
 <style>
 /* You can add other general styles here if needed */
-/* Removed specific expander styles as we are removing expanders */
 </style>
 """, unsafe_allow_html=True)
-
 
 # --- Grade System ---
 GRADE_POINTS = {"O": 10, "A+": 9, "A": 8, "B+": 7, "B": 6, "C+": 5, "C": 4, "N/A": 0}
 
-# --- Data Migration Function (THE FIX) ---
+# --- Data Migration Function ---
 def ensure_course_ids(data):
     """
     Scans loaded data and adds unique IDs to any courses that are missing them.
@@ -31,16 +29,15 @@ def ensure_course_ids(data):
                 if "id" not in course:
                     # Add a unique ID if it doesn't exist
                     course["id"] = time.time()
-                    time.sleep(0.01) # Sleep briefly to ensure unique timestamps
+                    time.sleep(0.01)  # Sleep briefly to ensure unique timestamps
     return data
 
 # --- State Management Callbacks ---
-
 def add_semester():
     """Appends a new semester dictionary to the session state."""
     st.session_state.semesters.append({
         "name": f"Semester {len(st.session_state.semesters) + 1}",
-        "courses": [] # Start with an empty course list
+        "courses": []  # Start with an empty course list
     })
     # Add one course to the new semester by default
     add_course(len(st.session_state.semesters) - 1)
@@ -52,9 +49,9 @@ def delete_semester(semester_index):
 def add_course(semester_index):
     """Adds a new course with a unique ID to a specific semester."""
     new_course = {
-        "id": time.time(), # Unique ID based on the current time
+        "id": time.time(),  # Unique ID based on the current time
         "name": "",
-        "grade": "O", # Default grade will still be 'O'
+        "grade": "O",  # Default grade will still be 'O'
         "credits": 3
     }
     st.session_state.semesters[semester_index]["courses"].append(new_course)
@@ -64,7 +61,6 @@ def delete_course(semester_index, course_id):
     courses = st.session_state.semesters[semester_index]["courses"]
     # Find the course with the matching ID and remove it
     st.session_state.semesters[semester_index]["courses"] = [c for c in courses if c["id"] != course_id]
-
 
 # --- Calculation Functions ---
 def calculate_gpa(courses):
@@ -101,7 +97,7 @@ def convert_to_csv(data):
     rows = []
     for sem in data:
         semester_name = sem["name"]
-        semester_gpa = calculate_gpa(sem["courses"]) # Calculate GPA for each semester
+        semester_gpa = calculate_gpa(sem["courses"])  # Calculate GPA for each semester
         for course in sem["courses"]:
             rows.append({
                 "Semester": semester_name,
@@ -112,32 +108,30 @@ def convert_to_csv(data):
             })
     
     if not rows:
-        return "" # Return empty string if no data
+        return ""  # Return empty string if no data
 
     df = pd.DataFrame(rows)
     # Convert DataFrame to CSV string
     return df.to_csv(index=False)
 
 # --- Main App ---
-
 # Initialize session state if it doesn't exist
 if "semesters" not in st.session_state:
     st.session_state.semesters = []
 
 # --- Institute Logo and Name ---
-# Create columns for the logo and institute name
-logo_col, name_col = st.columns([1, 4]) # Adjust column ratios as needed
+logo_col, name_col = st.columns([1, 4])  # Adjust column ratios as needed
 
 with logo_col:
     # Ensure 'rit_logo.png' is in the same directory as your script
-    st.image("rit_logo.png", width=100) # Adjust width as needed
+    st.image("rit_logo.png", width=100)  # Adjust width as needed
 
 with name_col:
     st.markdown("<h1>Rajalakshmi Institute of Technology</h1>", unsafe_allow_html=True)
-    st.markdown("---") # Add a horizontal line for separation
+    st.markdown("---")  # Add a horizontal line for separation
 
 # Header
-st.markdown("### GPA Jotter") # This is the main display heading within the app
+st.markdown("### GPA Jotter")  # This is the main display heading within the app
 st.caption("Track your semester and cumulative GPA with ease.")
 
 # Display CGPA
@@ -150,7 +144,7 @@ with col1:
     st.button("➕ Add Semester", on_click=add_semester, use_container_width=True)
 
 with col2:
-    # Save to JSON file (kept as an option)
+    # Save to JSON file
     st.download_button(
         label="💾 Save (JSON)",
         data=json.dumps(st.session_state.semesters, indent=4),
@@ -171,25 +165,24 @@ with col3:
     )
 
 with col4:
-    # --- UPDATED FILE LOADING LOGIC ---
+    # --- File Loading Logic ---
     uploaded_file = st.file_uploader("📂 Load", type=["json"], label_visibility="collapsed")
     if uploaded_file:
         try:
             # Load data from the uploaded file
             loaded_data = json.load(uploaded_file)
             
-            # **FIX:** Ensure all courses have an 'id' for backward compatibility
+            # Ensure all courses have an 'id' for backward compatibility
             migrated_data = ensure_course_ids(loaded_data)
             
             # Assign the fixed data to the session state
             st.session_state.semesters = migrated_data
             
-            st.rerun() # Rerun to display the loaded data
+            st.rerun()  # Rerun to display the loaded data
         except json.JSONDecodeError:
             st.error("Invalid JSON file. Please upload a valid JSON file.")
         except Exception as e:
             st.error(f"An error occurred while loading the file: {e}")
-
 
 # --- Semester and Course Rendering Loop ---
 if not st.session_state.semesters:
@@ -236,7 +229,7 @@ for i in range(len(st.session_state.semesters) - 1, -1, -1):
             )
         with cols[3]:
             st.button(
-                "🗑️", key=f"del_{course_id}", on_on_click=delete_course, args=[i, course_id]
+                "🗑️", key=f"del_{course_id}", on_click=delete_course, args=[i, course_id]
             )
 
     # Semester-level action buttons
