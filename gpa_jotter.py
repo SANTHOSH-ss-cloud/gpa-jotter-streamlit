@@ -4,41 +4,39 @@ from PIL import Image
 
 st.set_page_config(page_title="GPA Jotter", layout="centered")
 
-# --- Custom CSS for Styling the Expander ---
-# This CSS block targets the Streamlit expander component and makes it larger
-# and styled similarly to your provided image.
+# --- REVISED Custom CSS for Styling the Expander ---
+# This CSS is more forceful to ensure it overrides Streamlit's default styles.
 st.markdown("""
 <style>
 div[data-testid="stExpander"] summary {
-    background-color: #262730;
-    color: #FFFFFF;
-    font-size: 1.1rem;
-    padding: 1rem;
-    border-radius: 0.5rem;
-    border: 1px solid #262730;
+    background-color: #262730 !important;
+    color: #FFFFFF !important;
+    font-size: 1.1rem !important;
+    padding: 1rem !important;
+    border-radius: 0.5rem !important;
+    border: 1px solid #262730 !important;
 }
-div[data-testid="stExpander"] summary:hover {
-    background-color: #31333F;
-    color: #FFFFFF;
+
+/* This targets the expander icon (the chevron) */
+div[data-testid="stExpander"] summary svg {
+    color: #FFFFFF !important;
 }
-div[data-testid="stExpander"] summary::after {
-    color: #FFFFFF;
-}
+
+/* This ensures the top corners remain rounded when the expander is open */
 div[data-testid="stExpander"][open] > summary {
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
 }
 </style>
-""", unsafe_allow_html=False)
+""", unsafe_allow_html=True)
 # --- End of Custom CSS ---
 
-
 # Load and display logo
-try:
-    logo = Image.open("rit_logo.png")
-    st.image(logo, width=80)
-except FileNotFoundError:
-    st.warning("Logo file 'rit_logo.png' not found.")
+# try:
+#     logo = Image.open("rit_logo.png")
+#     st.image(logo, width=80)
+# except FileNotFoundError:
+#     st.warning("Logo file 'rit_logo.png' not found.")
 
 st.markdown("<h2 style='color:#1E3A8A;margin-bottom:0'>Rajalakshmi Institute of Technology</h2>", unsafe_allow_html=True)
 st.markdown("### GPA Jotter")
@@ -130,7 +128,6 @@ for i, semester in enumerate(st.session_state.semesters):
 
 # Process deletions safely outside the rendering loop
 if to_delete:
-    # Iterate backwards to avoid index shifting issues
     for i, j in sorted(to_delete, reverse=True):
         del st.session_state.semesters[i]["courses"][j]
     st.rerun()
