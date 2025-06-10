@@ -1,6 +1,15 @@
 import streamlit as st
 import json
+from PIL import Image
 
+# Load and display logo
+logo = Image.open("rit_logo.png")
+st.image(logo, width=80)
+st.markdown("<h2 style='color:#1E3A8A;margin-bottom:0'>Rajalakshmi Institute of Technology</h2>", unsafe_allow_html=True)
+st.markdown("### GPA Jotter")
+st.caption("Track your semester and cumulative GPA with ease.")
+
+# Grade system
 GRADE_POINTS = {
     "O": 10,
     "A+": 9,
@@ -11,17 +20,15 @@ GRADE_POINTS = {
     "C": 4
 }
 
+# Configure Streamlit page
 st.set_page_config(page_title="GPA Jotter", layout="centered")
-st.title("🧮 GPA Jotter")
-st.subheader("Track your semester and cumulative GPA with ease.")
 
-# Session state to hold semesters
+# Initialize session state
 if "semesters" not in st.session_state:
     st.session_state.semesters = []
 
 if "data_loaded" not in st.session_state:
     st.session_state.data_loaded = False
-
 
 def calculate_gpa(courses):
     total_points = 0
@@ -33,7 +40,6 @@ def calculate_gpa(courses):
             total_points += GRADE_POINTS[grade] * credits
             total_credits += credits
     return round(total_points / total_credits, 2) if total_credits > 0 else 0.0
-
 
 def calculate_cgpa():
     total_points = 0
@@ -47,12 +53,11 @@ def calculate_cgpa():
                 total_credits += credits
     return round(total_points / total_credits, 2) if total_credits > 0 else 0.0
 
-
 # Display CGPA
 st.markdown(f"### Cumulative GPA (CGPA):  \n<span style='color:green;font-size:38px'>{calculate_cgpa():.2f}</span>", unsafe_allow_html=True)
 
 # Control buttons
-col1, col2, col3, col4 = st.columns([1,1,1,1])
+col1, col2, col3, col4 = st.columns(4)
 with col1:
     if st.button("➕ Add Semester"):
         st.session_state.semesters.append({"name": f"Semester {len(st.session_state.semesters) + 1}", "courses": []})
@@ -75,19 +80,24 @@ with col4:
 
 # Semester & course inputs
 for i, semester in enumerate(st.session_state.semesters):
-    with st.expander(f"{semester['name']} - GPA: {calculate_gpa(semester['courses'])}"):
+    gpa = calculate_gpa(semester['courses'])
+    with st.expander(f"{semester['name']} - GPA: {gpa}"):
+        new_courses = []
         for j, course in enumerate(semester["courses"]):
             cols = st.columns([3, 2, 2, 1])
             with cols[0]:
-                course["name"] = st.text_input("Course Name (Optional)", course.get("name", ""), key=f"name_{i}_{j}")
+                name = st.text_input("Course Name", course.get("name", ""), key=f"name_{i}_{j}")
             with cols[1]:
-                course["grade"] = st.selectbox("Grade", list(GRADE_POINTS.keys()), index=list(GRADE_POINTS.keys()).index(course.get("grade", "O")), key=f"grade_{i}_{j}")
+                grade = st.selectbox("Grade", list(GRADE_POINTS.keys()), index=list(GRADE_POINTS.keys()).index(course.get("grade", "O")), key=f"grade_{i}_{j}")
             with cols[2]:
-                course["credits"] = st.number_input("Credits", min_value=1, max_value=10, value=course.get("credits", 3), key=f"credits_{i}_{j}")
+                credits = st.number_input("Credits", min_value=1, max_value=10, value=course.get("credits", 3), key=f"credits_{i}_{j}")
             with cols[3]:
-                if st.button("🗑️", key=f"del_{i}_{j}"):
-                    semester["courses"].pop(j)
-                    st.experimental_rerun()
+                if st.button("🗑️", key=f"delete_{i}_{j}"):
+                    continue  # Skip adding this course (delete)
+            new_courses.append({"name": name, "grade": grade, "credits": credits})
+
+        st.session_state.semesters[i]["courses"] = new_courses
 
         if st.button("➕ Add Course", key=f"add_course_{i}"):
             semester["courses"].append({"name": "", "grade": "O", "credits": 3})
+            st.experimental_rerun()
