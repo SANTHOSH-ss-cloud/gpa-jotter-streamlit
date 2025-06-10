@@ -1,11 +1,12 @@
 import streamlit as st
 import json
 import time
-import pandas as pd # Import pandas for easy CSV handling
-import io # Import io for in-memory file handling
+import pandas as pd
+import io
 
 # --- Page and Style Configuration ---
-st.set_page_config(page_title="GPA Jotter", layout="centered")
+# Changed page_title to "Calculate Your CGPA"
+st.set_page_config(page_title="Calculate Your CGPA", layout="centered")
 
 # Custom CSS (removing the expander specific styles as they won't apply)
 st.markdown("""
@@ -125,14 +126,13 @@ if "semesters" not in st.session_state:
     st.session_state.semesters = []
 
 # Header
-st.markdown("### GPA Jotter")
+st.markdown("### GPA Jotter") # This is the main display heading within the app
 st.caption("Track your semester and cumulative GPA with ease.")
 
 # Display CGPA
 st.markdown(f"### Cumulative GPA (CGPA):  \n<span style='color:green;font-size:38px'>{calculate_cgpa():.2f}</span>", unsafe_allow_html=True)
 
 # --- Top Level Controls ---
-# Add a column for "Save to CSV"
 col1, col2, col3, col4 = st.columns([1.5, 1, 1, 1])
 
 with col1:
