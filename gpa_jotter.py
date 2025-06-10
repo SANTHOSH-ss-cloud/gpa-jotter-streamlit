@@ -5,7 +5,6 @@ import pandas as pd
 import io
 
 # --- Page and Style Configuration ---
-# Changed page_title to "Calculate Your CGPA"
 st.set_page_config(page_title="Calculate Your CGPA", layout="centered")
 
 # Custom CSS (removing the expander specific styles as they won't apply)
@@ -125,6 +124,18 @@ def convert_to_csv(data):
 if "semesters" not in st.session_state:
     st.session_state.semesters = []
 
+# --- Institute Logo and Name ---
+# Create columns for the logo and institute name
+logo_col, name_col = st.columns([1, 4]) # Adjust column ratios as needed
+
+with logo_col:
+    # Ensure 'rit_logo.png' is in the same directory as your script
+    st.image("rit_logo.png", width=100) # Adjust width as needed
+
+with name_col:
+    st.markdown("<h1>Rajalakshmi Institute of Technology</h1>", unsafe_allow_html=True)
+    st.markdown("---") # Add a horizontal line for separation
+
 # Header
 st.markdown("### GPA Jotter") # This is the main display heading within the app
 st.caption("Track your semester and cumulative GPA with ease.")
@@ -225,7 +236,7 @@ for i in range(len(st.session_state.semesters) - 1, -1, -1):
             )
         with cols[3]:
             st.button(
-                "🗑️", key=f"del_{course_id}", on_click=delete_course, args=[i, course_id]
+                "🗑️", key=f"del_{course_id}", on_on_click=delete_course, args=[i, course_id]
             )
 
     # Semester-level action buttons
