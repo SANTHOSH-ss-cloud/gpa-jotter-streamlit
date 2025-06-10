@@ -15,7 +15,8 @@ st.markdown("""
 
 
 # --- Grade System ---
-GRADE_POINTS = {"O": 10, "A+": 9, "A": 8, "B+": 7, "B": 6, "C+": 5, "C": 4}
+# Added "N/A" with 0 points, as it signifies a failed course and should not contribute positively to GPA.
+GRADE_POINTS = {"O": 10, "A+": 9, "A": 8, "B+": 7, "B": 6, "C+": 5, "C": 4, "N/A": 0}
 
 # --- Data Migration Function (THE FIX) ---
 def ensure_course_ids(data):
@@ -52,7 +53,7 @@ def add_course(semester_index):
     new_course = {
         "id": time.time(), # Unique ID based on the current time
         "name": "",
-        "grade": "O",
+        "grade": "O", # Default grade will still be 'O'
         "credits": 3
     }
     st.session_state.semesters[semester_index]["courses"].append(new_course)
@@ -71,9 +72,12 @@ def calculate_gpa(courses):
     for course in courses:
         grade = course.get("grade")
         credits = int(course.get("credits", 0))
+        # Only include valid grades (not "N/A") in GPA calculation if "N/A" means no points.
+        # However, it should still contribute to total credits if it represents a failed attempt.
         if grade in GRADE_POINTS and credits:
-            total_points += GRADE_POINTS[grade] * credits
-            total_credits += credits
+            if grade != "N/A": # "N/A" will have 0 points, but still add credits for total credits.
+                total_points += GRADE_POINTS[grade] * credits
+            total_credits += credits # Credits always count if a course was taken
     return round(total_points / total_credits, 2) if total_credits > 0 else 0.0
 
 def calculate_cgpa():
@@ -84,7 +88,8 @@ def calculate_cgpa():
             grade = course.get("grade")
             credits = int(course.get("credits", 0))
             if grade in GRADE_POINTS and credits:
-                total_points += GRADE_POINTS[grade] * credits
+                if grade != "N/A": # "N/A" will have 0 points, but still add credits for total credits.
+                    total_points += GRADE_POINTS[grade] * credits
                 total_credits += credits
     return round(total_points / total_credits, 2) if total_credits > 0 else 0.0
 
@@ -169,8 +174,13 @@ for i in range(len(st.session_state.semesters) - 1, -1, -1):
                 "Course Name", value=course["name"], key=f"name_{course_id}", label_visibility="collapsed"
             )
         with cols[1]:
+            # Handle cases where existing data might have grades not in the new GRADE_POINTS
+            current_grade_index = 0
+            if course["grade"] in GRADE_POINTS:
+                current_grade_index = list(GRADE_POINTS.keys()).index(course["grade"])
+            
             course["grade"] = st.selectbox(
-                "Grade", options=GRADE_POINTS.keys(), index=list(GRADE_POINTS.keys()).index(course["grade"]), key=f"grade_{course_id}", label_visibility="collapsed"
+                "Grade", options=list(GRADE_POINTS.keys()), index=current_grade_index, key=f"grade_{course_id}", label_visibility="collapsed"
             )
         with cols[2]:
             course["credits"] = st.number_input(
