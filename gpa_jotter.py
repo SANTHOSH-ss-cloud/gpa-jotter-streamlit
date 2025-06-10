@@ -1,11 +1,11 @@
 import streamlit as st
 import json
-from PIL import Image
+import time # We'll use time to generate unique IDs for courses
 
+# --- Page and Style Configuration ---
 st.set_page_config(page_title="GPA Jotter", layout="centered")
 
-# --- REVISED Custom CSS for Styling the Expander ---
-# This CSS is more forceful to ensure it overrides Streamlit's default styles.
+# Custom CSS to make the semester expanders look better
 st.markdown("""
 <style>
 div[data-testid="stExpander"] summary {
@@ -16,56 +16,59 @@ div[data-testid="stExpander"] summary {
     border-radius: 0.5rem !important;
     border: 1px solid #262730 !important;
 }
-
-/* This targets the expander icon (the chevron) */
 div[data-testid="stExpander"] summary svg {
     color: #FFFFFF !important;
 }
-
-/* This ensures the top corners remain rounded when the expander is open */
 div[data-testid="stExpander"][open] > summary {
     border-bottom-left-radius: 0 !important;
     border-bottom-right-radius: 0 !important;
 }
 </style>
 """, unsafe_allow_html=True)
-# --- End of Custom CSS ---
 
-# Load and display logo
-# try:
-#     logo = Image.open("rit_logo.png")
-#     st.image(logo, width=80)
-# except FileNotFoundError:
-#     st.warning("Logo file 'rit_logo.png' not found.")
 
-st.markdown("<h2 style='color:#1E3A8A;margin-bottom:0'>Rajalakshmi Institute of Technology</h2>", unsafe_allow_html=True)
-st.markdown("### GPA Jotter")
-st.caption("Track your semester and cumulative GPA with ease.")
+# --- Grade System ---
+GRADE_POINTS = {"O": 10, "A+": 9, "A": 8, "B+": 7, "B": 6, "C+": 5, "C": 4}
 
-# Grade system
-GRADE_POINTS = {
-    "O": 10,
-    "A+": 9,
-    "A": 8,
-    "B+": 7,
-    "B": 6,
-    "C+": 5,
-    "C": 4
-}
+# --- State Management Callbacks (The Core Logic) ---
 
-# Initialize session state
-if "semesters" not in st.session_state:
-    st.session_state.semesters = []
+def add_semester():
+    """Appends a new semester dictionary to the session state."""
+    st.session_state.semesters.append({
+        "name": f"Semester {len(st.session_state.semesters) + 1}",
+        "courses": [] # Start with an empty course list
+    })
+    # Add one course to the new semester by default
+    add_course(len(st.session_state.semesters) - 1)
 
-if "data_loaded" not in st.session_state:
-    st.session_state.data_loaded = False
+def delete_semester(semester_index):
+    """Deletes a semester at a given index."""
+    del st.session_state.semesters[semester_index]
 
+def add_course(semester_index):
+    """Adds a new course with a unique ID to a specific semester."""
+    new_course = {
+        "id": time.time(), # Unique ID based on the current time
+        "name": "",
+        "grade": "O",
+        "credits": 3
+    }
+    st.session_state.semesters[semester_index]["courses"].append(new_course)
+
+def delete_course(semester_index, course_id):
+    """Deletes a course from a semester by its unique ID."""
+    courses = st.session_state.semesters[semester_index]["courses"]
+    # Find the course with the matching ID and remove it
+    st.session_state.semesters[semester_index]["courses"] = [c for c in courses if c["id"] != course_id]
+
+
+# --- Calculation Functions ---
 def calculate_gpa(courses):
     total_points = 0
     total_credits = 0
     for course in courses:
         grade = course.get("grade")
-        credits = course.get("credits", 0)
+        credits = int(course.get("credits", 0))
         if grade in GRADE_POINTS and credits:
             total_points += GRADE_POINTS[grade] * credits
             total_credits += credits
@@ -77,57 +80,98 @@ def calculate_cgpa():
     for sem in st.session_state.semesters:
         for course in sem["courses"]:
             grade = course.get("grade")
-            credits = course.get("credits", 0)
+            credits = int(course.get("credits", 0))
             if grade in GRADE_POINTS and credits:
                 total_points += GRADE_POINTS[grade] * credits
                 total_credits += credits
     return round(total_points / total_credits, 2) if total_credits > 0 else 0.0
 
+# --- Main App ---
+
+# Initialize session state if it doesn't exist
+if "semesters" not in st.session_state:
+    st.session_state.semesters = []
+
+# Header
+st.markdown("### GPA Jotter")
+st.caption("Track your semester and cumulative GPA with ease.")
+
 # Display CGPA
 st.markdown(f"### Cumulative GPA (CGPA):  \n<span style='color:green;font-size:38px'>{calculate_cgpa():.2f}</span>", unsafe_allow_html=True)
 
-# Control buttons
-col1, col2, col3, col4 = st.columns(4)
+# --- Top Level Controls ---
+col1, col2, col3 = st.columns([1.5, 1, 1])
 with col1:
-    if st.button("➕ Add Semester"):
-        st.session_state.semesters.append({"name": f"Semester {len(st.session_state.semesters) + 1}", "courses": []})
-        st.rerun()
+    st.button("➕ Add Semester", on_click=add_semester, use_container_width=True)
 
 with col2:
-    if st.download_button("💾 Save to File", json.dumps(st.session_state.semesters, indent=4), file_name="gpa_data.json"):
-        st.success("Saved successfully!")
-
+    # Save to file
+    st.download_button(
+        label="💾 Save",
+        data=json.dumps(st.session_state.semesters, indent=4),
+        file_name="gpa_data.json",
+        mime="application/json",
+        use_container_width=True
+    )
 with col3:
-    uploaded_file = st.file_uploader("📂 Load from File", type=["json"])
-    if uploaded_file and not st.session_state.data_loaded:
-        st.session_state.semesters = json.load(uploaded_file)
-        st.session_state.data_loaded = True
-        st.rerun()
-
-with col4:
-    if st.button("🔁 Reset All Data"):
-        st.session_state.semesters = []
-        st.rerun()
-
-# Semester & course inputs
-to_delete = []
-
-for i, semester in enumerate(st.session_state.semesters):
-    with st.expander(f"{semester['name']} - GPA: {calculate_gpa(semester['courses']):.2f}"):
-        for j, course in enumerate(semester["courses"]):
-            cols = st.columns([3, 2, 2, 1])
-            course["name"] = cols[0].text_input("Course Name (Optional)", course.get("name", ""), key=f"name_{i}_{j}")
-            course["grade"] = cols[1].selectbox("Grade", list(GRADE_POINTS.keys()), index=list(GRADE_POINTS.keys()).index(course.get("grade", "O")), key=f"grade_{i}_{j}")
-            course["credits"] = cols[2].number_input("Credits", min_value=1, max_value=10, value=course.get("credits", 3), key=f"credits_{i}_{j}")
-            if cols[3].button("🗑️", key=f"del_{i}_{j}"):
-                to_delete.append((i, j))
-
-        if st.button("➕ Add Course", key=f"add_course_{i}"):
-            semester["courses"].append({"name": "", "grade": "O", "credits": 3})
+    # Load from file
+    uploaded_file = st.file_uploader("📂 Load", type=["json"], label_visibility="collapsed")
+    if uploaded_file:
+        try:
+            st.session_state.semesters = json.load(uploaded_file)
             st.rerun()
+        except json.JSONDecodeError:
+            st.error("Invalid JSON file.")
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
 
-# Process deletions safely outside the rendering loop
-if to_delete:
-    for i, j in sorted(to_delete, reverse=True):
-        del st.session_state.semesters[i]["courses"][j]
-    st.rerun()
+
+# --- Semester and Course Rendering Loop ---
+if not st.session_state.semesters:
+    st.info("Click 'Add Semester' to get started!")
+
+# Iterate backwards for safe deletion during the loop
+for i in range(len(st.session_state.semesters) - 1, -1, -1):
+    semester = st.session_state.semesters[i]
+    gpa = calculate_gpa(semester["courses"])
+
+    with st.expander(f"{semester['name']} - GPA: {gpa:.2f}"):
+        # Header for the course list
+        st.markdown("""
+        <div style="display: grid; grid-template-columns: 3fr 2fr 2fr 1fr; gap: 10px; font-weight: bold; margin-bottom: 10px;">
+            <div>Course Name</div>
+            <div>Grade</div>
+            <div>Credits</div>
+            <div>Action</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Loop through courses and create their widgets
+        for course in semester["courses"]:
+            course_id = course["id"]
+            cols = st.columns([3, 2, 2, 1])
+            
+            with cols[0]:
+                course["name"] = st.text_input(
+                    "Course Name", value=course["name"], key=f"name_{course_id}", label_visibility="collapsed"
+                )
+            with cols[1]:
+                course["grade"] = st.selectbox(
+                    "Grade", options=GRADE_POINTS.keys(), index=list(GRADE_POINTS.keys()).index(course["grade"]), key=f"grade_{course_id}", label_visibility="collapsed"
+                )
+            with cols[2]:
+                course["credits"] = st.number_input(
+                    "Credits", min_value=0, max_value=10, value=int(course["credits"]), key=f"credits_{course_id}", label_visibility="collapsed"
+                )
+            with cols[3]:
+                st.button(
+                    "🗑️", key=f"del_{course_id}", on_click=delete_course, args=[i, course_id]
+                )
+
+        # Semester-level action buttons
+        st.markdown("---")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.button("➕ Add Course", key=f"add_course_{i}", on_click=add_course, args=[i])
+        with c2:
+            st.button("❌ Delete Semester", key=f"del_sem_{i}", on_click=delete_semester, args=[i], type="secondary")
