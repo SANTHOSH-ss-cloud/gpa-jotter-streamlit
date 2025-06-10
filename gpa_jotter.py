@@ -29,7 +29,7 @@ div[data-testid="stExpander"][open] > summary {
     border-bottom-right-radius: 0;
 }
 </style>
-""", unsafe_allow_html=True)
+""", unsafe_allow_html=False)
 # --- End of Custom CSS ---
 
 
