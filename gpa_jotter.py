@@ -2,6 +2,8 @@ import streamlit as st
 import json
 from PIL import Image
 
+st.set_page_config(page_title="GPA Jotter", layout="centered")
+
 # Load and display logo
 logo = Image.open("rit_logo.png")
 st.image(logo, width=80)
@@ -21,7 +23,6 @@ GRADE_POINTS = {
 }
 
 # Configure Streamlit page
-st.set_page_config(page_title="GPA Jotter", layout="centered")
 
 # Initialize session state
 if "semesters" not in st.session_state:
