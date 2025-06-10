@@ -4,9 +4,42 @@ from PIL import Image
 
 st.set_page_config(page_title="GPA Jotter", layout="centered")
 
+# --- Custom CSS for Styling the Expander ---
+# This CSS block targets the Streamlit expander component and makes it larger
+# and styled similarly to your provided image.
+st.markdown("""
+<style>
+div[data-testid="stExpander"] summary {
+    background-color: #262730;
+    color: #FFFFFF;
+    font-size: 1.1rem;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid #262730;
+}
+div[data-testid="stExpander"] summary:hover {
+    background-color: #31333F;
+    color: #FFFFFF;
+}
+div[data-testid="stExpander"] summary::after {
+    color: #FFFFFF;
+}
+div[data-testid="stExpander"][open] > summary {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+</style>
+""", unsafe_allow_html=True)
+# --- End of Custom CSS ---
+
+
 # Load and display logo
-logo = Image.open("rit_logo.png")
-st.image(logo, width=80)
+try:
+    logo = Image.open("rit_logo.png")
+    st.image(logo, width=80)
+except FileNotFoundError:
+    st.warning("Logo file 'rit_logo.png' not found.")
+
 st.markdown("<h2 style='color:#1E3A8A;margin-bottom:0'>Rajalakshmi Institute of Technology</h2>", unsafe_allow_html=True)
 st.markdown("### GPA Jotter")
 st.caption("Track your semester and cumulative GPA with ease.")
@@ -21,8 +54,6 @@ GRADE_POINTS = {
     "C+": 5,
     "C": 4
 }
-
-# Configure Streamlit page
 
 # Initialize session state
 if "semesters" not in st.session_state:
@@ -62,9 +93,10 @@ col1, col2, col3, col4 = st.columns(4)
 with col1:
     if st.button("➕ Add Semester"):
         st.session_state.semesters.append({"name": f"Semester {len(st.session_state.semesters) + 1}", "courses": []})
+        st.rerun()
 
 with col2:
-    if st.download_button("💾 Save to File", json.dumps(st.session_state.semesters), file_name="gpa_data.json"):
+    if st.download_button("💾 Save to File", json.dumps(st.session_state.semesters, indent=4), file_name="gpa_data.json"):
         st.success("Saved successfully!")
 
 with col3:
@@ -72,38 +104,33 @@ with col3:
     if uploaded_file and not st.session_state.data_loaded:
         st.session_state.semesters = json.load(uploaded_file)
         st.session_state.data_loaded = True
-        st.experimental_rerun()
+        st.rerun()
 
 with col4:
     if st.button("🔁 Reset All Data"):
         st.session_state.semesters = []
-        st.experimental_rerun()
+        st.rerun()
 
 # Semester & course inputs
-# Temporary list to collect deletion requests
 to_delete = []
 
 for i, semester in enumerate(st.session_state.semesters):
-    with st.expander(f"{semester['name']} - GPA: {calculate_gpa(semester['courses'])}"):
+    with st.expander(f"{semester['name']} - GPA: {calculate_gpa(semester['courses']):.2f}"):
         for j, course in enumerate(semester["courses"]):
             cols = st.columns([3, 2, 2, 1])
-            with cols[0]:
-                course["name"] = st.text_input("Course Name (Optional)", course.get("name", ""), key=f"name_{i}_{j}")
-            with cols[1]:
-                course["grade"] = st.selectbox("Grade", list(GRADE_POINTS.keys()), index=list(GRADE_POINTS.keys()).index(course.get("grade", "O")), key=f"grade_{i}_{j}")
-            with cols[2]:
-                course["credits"] = st.number_input("Credits", min_value=1, max_value=10, value=course.get("credits", 3), key=f"credits_{i}_{j}")
-            with cols[3]:
-                if st.button("🗑️", key=f"del_{i}_{j}"):
-                    to_delete.append((i, j))
+            course["name"] = cols[0].text_input("Course Name (Optional)", course.get("name", ""), key=f"name_{i}_{j}")
+            course["grade"] = cols[1].selectbox("Grade", list(GRADE_POINTS.keys()), index=list(GRADE_POINTS.keys()).index(course.get("grade", "O")), key=f"grade_{i}_{j}")
+            course["credits"] = cols[2].number_input("Credits", min_value=1, max_value=10, value=course.get("credits", 3), key=f"credits_{i}_{j}")
+            if cols[3].button("🗑️", key=f"del_{i}_{j}"):
+                to_delete.append((i, j))
 
         if st.button("➕ Add Course", key=f"add_course_{i}"):
             semester["courses"].append({"name": "", "grade": "O", "credits": 3})
+            st.rerun()
 
-# Now process deletion safely
+# Process deletions safely outside the rendering loop
 if to_delete:
-    for i, j in to_delete:
-        if j < len(st.session_state.semesters[i]["courses"]):
-            st.session_state.semesters[i]["courses"].pop(j)
-    st.experimental_rerun()
-
+    # Iterate backwards to avoid index shifting issues
+    for i, j in sorted(to_delete, reverse=True):
+        del st.session_state.semesters[i]["courses"][j]
+    st.rerun()
