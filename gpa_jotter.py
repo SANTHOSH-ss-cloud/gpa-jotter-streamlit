@@ -47,7 +47,18 @@ def ensure_course_ids(data):
 
 # --- State Management Callbacks ---
 
-# Removed add_semester and delete_semester functions as semesters are fixed.
+def add_semester():
+    """Appends a new semester dictionary to the session state."""
+    st.session_state.semesters.append({
+        "name": f"Semester {len(st.session_state.semesters) + 1}",
+        "courses": [] # Start with an empty course list
+    })
+    # Add one course to the new semester by default
+    add_course(len(st.session_state.semesters) - 1)
+
+def delete_semester(semester_index):
+    """Deletes a semester at a given index."""
+    del st.session_state.semesters[semester_index]
 
 def add_course(semester_index):
     """Adds a new course with a unique ID to a specific semester."""
@@ -94,16 +105,7 @@ def calculate_cgpa():
 
 # Initialize session state if it doesn't exist
 if "semesters" not in st.session_state:
-    # Initialize with a fixed number of semesters, e.g., 8
     st.session_state.semesters = []
-    for i in range(1, 9): # Create 8 fixed semesters
-        st.session_state.semesters.append({
-            "name": f"Semester {i}",
-            "courses": []
-        })
-        # Optionally, add one default course to each semester
-        add_course(i - 1)
-
 
 # Header
 st.markdown("### GPA Jotter")
@@ -112,10 +114,12 @@ st.caption("Track your semester and cumulative GPA with ease.")
 # Display CGPA
 st.markdown(f"### Cumulative GPA (CGPA):  \n<span style='color:green;font-size:38px'>{calculate_cgpa():.2f}</span>", unsafe_allow_html=True)
 
-# --- Top Level Controls (Modified) ---
-col1, col2 = st.columns([1, 1])
-
+# --- Top Level Controls ---
+col1, col2, col3 = st.columns([1.5, 1, 1])
 with col1:
+    st.button("➕ Add Semester", on_click=add_semester, use_container_width=True)
+
+with col2:
     # Save to file
     st.download_button(
         label="💾 Save",
@@ -124,7 +128,7 @@ with col1:
         mime="application/json",
         use_container_width=True
     )
-with col2:
+with col3:
     # --- UPDATED FILE LOADING LOGIC ---
     uploaded_file = st.file_uploader("📂 Load", type=["json"], label_visibility="collapsed")
     if uploaded_file:
@@ -146,11 +150,16 @@ with col2:
 
 
 # --- Semester and Course Rendering Loop ---
-# Iterate backwards for safe deletion during the loop (still needed for course deletion)
+if not st.session_state.semesters:
+    st.info("Click 'Add Semester' to get started!")
+
+# Iterate backwards for safe deletion during the loop
+# This loop naturally maintains the order of semesters as they are in the list.
 for i in range(len(st.session_state.semesters) - 1, -1, -1):
     semester = st.session_state.semesters[i]
     gpa = calculate_gpa(semester["courses"])
 
+    # The st.expander itself is not movable.
     with st.expander(f"{semester['name']} - GPA: {gpa:.2f}"):
         # Header for the course list
         st.markdown("""
@@ -164,7 +173,7 @@ for i in range(len(st.session_state.semesters) - 1, -1, -1):
 
         # Loop through courses and create their widgets
         for course in semester["courses"]:
-            course_id = course["id"] 
+            course_id = course["id"]
             cols = st.columns([3, 2, 2, 1])
             
             with cols[0]:
@@ -184,6 +193,10 @@ for i in range(len(st.session_state.semesters) - 1, -1, -1):
                     "🗑️", key=f"del_{course_id}", on_click=delete_course, args=[i, course_id]
                 )
 
-        # Semester-level action buttons (only Add Course remains)
+        # Semester-level action buttons
         st.markdown("---")
-        st.button("➕ Add Course", key=f"add_course_{i}", on_click=add_course, args=[i])
+        c1, c2 = st.columns(2)
+        with c1:
+            st.button("➕ Add Course", key=f"add_course_{i}", on_click=add_course, args=[i])
+        with c2:
+            st.button("❌ Delete Semester", key=f"del_sem_{i}", on_click=delete_semester, args=[i], type="secondary")
