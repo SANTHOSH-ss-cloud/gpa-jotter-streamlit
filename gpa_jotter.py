@@ -120,15 +120,7 @@ if "semesters" not in st.session_state:
     st.session_state.semesters = []
 
 # --- Institute Logo and Name ---
-logo_col, name_col = st.columns([1, 4])  # Adjust column ratios as needed
 
-with logo_col:
-    # Ensure 'rit_logo.png' is in the same directory as your script
-    st.image("rit_logo.png", width=100)  # Adjust width as needed
-
-with name_col:
-    st.markdown("<h1>Rajalakshmi Institute of Technology</h1>", unsafe_allow_html=True)
-    st.markdown("---")  # Add a horizontal line for separation
 
 # Header
 st.markdown("### GPA Jotter")  # This is the main display heading within the app
