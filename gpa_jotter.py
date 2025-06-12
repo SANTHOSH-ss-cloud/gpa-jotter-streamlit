@@ -4,20 +4,16 @@ import time
 import pandas as pd
 import io
 
-# --- Page and Style Configuration ---
 st.set_page_config(page_title="Calculate Your CGPA", layout="centered")
 
-# Custom CSS
 st.markdown("""
 <style>
 /* You can add other general styles here if needed */
 </style>
 """, unsafe_allow_html=True)
 
-# --- Grade System ---
 GRADE_POINTS = {"O": 10, "A+": 9, "A": 8, "B+": 7, "B": 6, "C+": 5, "C": 4, "N/A": 0}
 
-# --- Data Migration Function ---
 def ensure_course_ids(data):
     """
     Scans loaded data and adds unique IDs to any courses that are missing them.
