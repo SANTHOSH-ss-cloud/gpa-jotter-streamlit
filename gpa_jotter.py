@@ -2,7 +2,7 @@ import streamlit as st
 import json
 import time
 import pandas as pd
-import fitz  # PyMuPDF for PDF extraction
+import fitz  # PyMuPDF
 
 # --- Streamlit Page Config ---
 st.set_page_config(page_title="Calculate Your CGPA", layout="centered")
@@ -61,7 +61,7 @@ def convert_to_csv(data):
     df = pd.DataFrame(rows)
     return df.to_csv(index=False)
 
-# --- New: Extract from PDF ---
+# --- ✅ FIXED: Extract from PDF (handles '01 EC23111 Course Name A PASS') ---
 def extract_courses_from_pdf(pdf_file):
     doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
     text = ""
@@ -70,21 +70,22 @@ def extract_courses_from_pdf(pdf_file):
 
     lines = text.splitlines()
     courses = []
+
     for line in lines:
-        if any(code in line for code in ["EC", "GE", "HS", "MA", "PH"]):
-            parts = line.strip().split()
-            if len(parts) >= 3:
-                code = parts[0]
-                grade = parts[-2]
-                name = " ".join(parts[1:-2])
-                if grade in GRADE_POINTS:
-                    courses.append({
-                        "id": time.time(),
-                        "name": name,
-                        "grade": grade,
-                        "credits": 3  # default to 3 credits
-                    })
-                    time.sleep(0.01)
+        parts = line.strip().split()
+        if len(parts) >= 5:
+            possible_code = parts[1]
+            possible_grade = parts[-2]
+            if possible_grade in GRADE_POINTS and any(prefix in possible_code for prefix in ["EC", "GE", "MA", "HS", "PH"]):
+                course_name = " ".join(parts[2:-2])
+                courses.append({
+                    "id": time.time(),
+                    "name": course_name,
+                    "grade": possible_grade,
+                    "credits": 3  # default credit
+                })
+                time.sleep(0.01)
+    
     return {
         "name": f"Semester {len(st.session_state.semesters) + 1}",
         "courses": courses
@@ -140,7 +141,7 @@ with col4:
         except Exception as e:
             st.error(f"Error loading JSON: {e}")
 
-# --- New Section: Upload Multiple PDFs ---
+# --- ✅ Upload Multiple PDFs ---
 uploaded_pdfs = st.file_uploader("📥 Upload Result PDFs", type="pdf", accept_multiple_files=True)
 if uploaded_pdfs:
     for pdf_file in uploaded_pdfs:
@@ -154,7 +155,7 @@ if uploaded_pdfs:
         except Exception as e:
             st.error(f"❌ Failed to process {pdf_file.name}: {e}")
 
-# --- Course and Semester UI ---
+# --- Course & Semester Logic ---
 def add_course(semester_index):
     new_course = {
         "id": time.time(),
