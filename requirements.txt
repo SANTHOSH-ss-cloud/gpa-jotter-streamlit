@@ -1,4 +1,4 @@
 streamlit
 Pillow
 pymupdf 
-pip install streamlit pandas pymupdf
+pandas
