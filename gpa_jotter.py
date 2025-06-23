@@ -2,66 +2,26 @@ import streamlit as st
 import json
 import time
 import pandas as pd
-import io
+import fitz  # PyMuPDF for PDF extraction
 
+# --- Streamlit Page Config ---
 st.set_page_config(page_title="Calculate Your CGPA", layout="centered")
 
-st.markdown("""
-<style>
-/* You can add other general styles here if needed */
-</style>
-""", unsafe_allow_html=True)
-
+# --- Grade Points ---
 GRADE_POINTS = {"O": 10, "A+": 9, "A": 8, "B+": 7, "B": 6, "C+": 5, "C": 4, "N/A": 0}
 
+# --- Utility Functions ---
 def ensure_course_ids(data):
-    """
-    Scans loaded data and adds unique IDs to any courses that are missing them.
-    This ensures compatibility with older data files.
-    """
     for semester in data:
         if "courses" in semester:
             for course in semester["courses"]:
                 if "id" not in course:
-                    # Add a unique ID if it doesn't exist
                     course["id"] = time.time()
-                    time.sleep(0.01)  # Sleep briefly to ensure unique timestamps
+                    time.sleep(0.01)
     return data
 
-# --- State Management Callbacks ---
-def add_semester():
-    """Appends a new semester dictionary to the session state."""
-    st.session_state.semesters.append({
-        "name": f"Semester {len(st.session_state.semesters) + 1}",
-        "courses": []  # Start with an empty course list
-    })
-    # Add one course to the new semester by default
-    add_course(len(st.session_state.semesters) - 1)
-
-def delete_semester(semester_index):
-    """Deletes a semester at a given index."""
-    del st.session_state.semesters[semester_index]
-
-def add_course(semester_index):
-    """Adds a new course with a unique ID to a specific semester."""
-    new_course = {
-        "id": time.time(),  # Unique ID based on the current time
-        "name": "",
-        "grade": "O",  # Default grade will still be 'O'
-        "credits": 3
-    }
-    st.session_state.semesters[semester_index]["courses"].append(new_course)
-
-def delete_course(semester_index, course_id):
-    """Deletes a course from a semester by its unique ID."""
-    courses = st.session_state.semesters[semester_index]["courses"]
-    # Find the course with the matching ID and remove it
-    st.session_state.semesters[semester_index]["courses"] = [c for c in courses if c["id"] != course_id]
-
-# --- Calculation Functions ---
 def calculate_gpa(courses):
-    total_points = 0
-    total_credits = 0
+    total_points, total_credits = 0, 0
     for course in courses:
         grade = course.get("grade")
         credits = int(course.get("credits", 0))
@@ -72,8 +32,7 @@ def calculate_gpa(courses):
     return round(total_points / total_credits, 2) if total_credits > 0 else 0.0
 
 def calculate_cgpa():
-    total_points = 0
-    total_credits = 0
+    total_points, total_credits = 0, 0
     for sem in st.session_state.semesters:
         for course in sem["courses"]:
             grade = course.get("grade")
@@ -84,16 +43,11 @@ def calculate_cgpa():
                 total_credits += credits
     return round(total_points / total_credits, 2) if total_credits > 0 else 0.0
 
-# --- File Saving Function for CSV ---
 def convert_to_csv(data):
-    """
-    Converts the semester data from session state into a CSV format.
-    Each row will represent a course with its semester details.
-    """
     rows = []
     for sem in data:
         semester_name = sem["name"]
-        semester_gpa = calculate_gpa(sem["courses"])  # Calculate GPA for each semester
+        semester_gpa = calculate_gpa(sem["courses"])
         for course in sem["courses"]:
             rows.append({
                 "Semester": semester_name,
@@ -102,37 +56,61 @@ def convert_to_csv(data):
                 "Grade": course.get("grade", ""),
                 "Credits": course.get("credits", 0)
             })
-    
     if not rows:
-        return ""  # Return empty string if no data
-
+        return ""
     df = pd.DataFrame(rows)
-    # Convert DataFrame to CSV string
     return df.to_csv(index=False)
 
-# --- Main App ---
-# Initialize session state if it doesn't exist
+# --- New: Extract from PDF ---
+def extract_courses_from_pdf(pdf_file):
+    doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
+    text = ""
+    for page in doc:
+        text += page.get_text()
+
+    lines = text.splitlines()
+    courses = []
+    for line in lines:
+        if any(code in line for code in ["EC", "GE", "HS", "MA", "PH"]):
+            parts = line.strip().split()
+            if len(parts) >= 3:
+                code = parts[0]
+                grade = parts[-2]
+                name = " ".join(parts[1:-2])
+                if grade in GRADE_POINTS:
+                    courses.append({
+                        "id": time.time(),
+                        "name": name,
+                        "grade": grade,
+                        "credits": 3  # default to 3 credits
+                    })
+                    time.sleep(0.01)
+    return {
+        "name": f"Semester {len(st.session_state.semesters) + 1}",
+        "courses": courses
+    }
+
+# --- State Initialization ---
 if "semesters" not in st.session_state:
     st.session_state.semesters = []
 
-# --- Institute Logo and Name ---
-
-
-# Header
-st.markdown("### GPA Jotter")  # This is the main display heading within the app
+# --- Header ---
+st.markdown("### GPA Jotter")
 st.caption("Track your semester and cumulative GPA with ease.")
-
-# Display CGPA
 st.markdown(f"### Cumulative GPA (CGPA):  \n<span style='color:green;font-size:38px'>{calculate_cgpa():.2f}</span>", unsafe_allow_html=True)
 
 # --- Top Level Controls ---
 col1, col2, col3, col4 = st.columns([1.5, 1, 1, 1])
-
 with col1:
+    def add_semester():
+        st.session_state.semesters.append({
+            "name": f"Semester {len(st.session_state.semesters) + 1}",
+            "courses": []
+        })
+        add_course(len(st.session_state.semesters) - 1)
     st.button("➕ Add Semester", on_click=add_semester, use_container_width=True)
 
 with col2:
-    # Save to JSON file
     st.download_button(
         label="💾 Save (JSON)",
         data=json.dumps(st.session_state.semesters, indent=4),
@@ -142,7 +120,6 @@ with col2:
     )
 
 with col3:
-    # Save to CSV file
     csv_string = convert_to_csv(st.session_state.semesters)
     st.download_button(
         label="📊 Save (CSV)",
@@ -153,79 +130,79 @@ with col3:
     )
 
 with col4:
-    # --- File Loading Logic ---
-    uploaded_file = st.file_uploader("📂 Load", type=["json"], label_visibility="collapsed")
-    if uploaded_file:
+    uploaded_json = st.file_uploader("📂 Load JSON", type=["json"], label_visibility="collapsed")
+    if uploaded_json:
         try:
-            # Load data from the uploaded file
-            loaded_data = json.load(uploaded_file)
-            
-            # Ensure all courses have an 'id' for backward compatibility
+            loaded_data = json.load(uploaded_json)
             migrated_data = ensure_course_ids(loaded_data)
-            
-            # Assign the fixed data to the session state
             st.session_state.semesters = migrated_data
-            
-            st.rerun()  # Rerun to display the loaded data
-        except json.JSONDecodeError:
-            st.error("Invalid JSON file. Please upload a valid JSON file.")
+            st.rerun()
         except Exception as e:
-            st.error(f"An error occurred while loading the file: {e}")
+            st.error(f"Error loading JSON: {e}")
 
-# --- Semester and Course Rendering Loop ---
+# --- New Section: Upload Multiple PDFs ---
+uploaded_pdfs = st.file_uploader("📥 Upload Result PDFs", type="pdf", accept_multiple_files=True)
+if uploaded_pdfs:
+    for pdf_file in uploaded_pdfs:
+        try:
+            sem_data = extract_courses_from_pdf(pdf_file)
+            if sem_data["courses"]:
+                st.session_state.semesters.append(sem_data)
+                st.success(f"✅ Added {len(sem_data['courses'])} courses from {pdf_file.name}")
+            else:
+                st.warning(f"⚠️ No valid courses found in {pdf_file.name}")
+        except Exception as e:
+            st.error(f"❌ Failed to process {pdf_file.name}: {e}")
+
+# --- Course and Semester UI ---
+def add_course(semester_index):
+    new_course = {
+        "id": time.time(),
+        "name": "",
+        "grade": "O",
+        "credits": 3
+    }
+    st.session_state.semesters[semester_index]["courses"].append(new_course)
+
+def delete_course(semester_index, course_id):
+    st.session_state.semesters[semester_index]["courses"] = [
+        c for c in st.session_state.semesters[semester_index]["courses"] if c["id"] != course_id
+    ]
+
+def delete_semester(semester_index):
+    del st.session_state.semesters[semester_index]
+
 if not st.session_state.semesters:
-    st.info("Click 'Add Semester' to get started!")
+    st.info("Click 'Add Semester' or upload PDFs to get started!")
 
-# Iterate backwards for safe deletion during the loop
 for i in range(len(st.session_state.semesters) - 1, -1, -1):
     semester = st.session_state.semesters[i]
     gpa = calculate_gpa(semester["courses"])
-
     st.markdown(f"## {semester['name']} - GPA: {gpa:.2f}")
     st.markdown("---")
 
-    # Header for the course list
     st.markdown("""
-    <div style="display: grid; grid-template-columns: 3fr 2fr 2fr 1fr; gap: 10px; font-weight: bold; margin-bottom: 10px;">
-        <div>Course Name</div>
-        <div>Grade</div>
-        <div>Credits</div>
-        <div>Action</div>
-    </div>
-    """, unsafe_allow_html=True)
+    <div style="display: grid; grid-template-columns: 3fr 2fr 2fr 1fr; gap: 10px; font-weight: bold;">
+        <div>Course Name</div><div>Grade</div><div>Credits</div><div>Action</div>
+    </div>""", unsafe_allow_html=True)
 
-    # Loop through courses and create their widgets
     for course in semester["courses"]:
         course_id = course["id"]
         cols = st.columns([3, 2, 2, 1])
-        
         with cols[0]:
-            course["name"] = st.text_input(
-                "Course Name", value=course["name"], key=f"name_{course_id}", label_visibility="collapsed"
-            )
+            course["name"] = st.text_input("Course Name", value=course["name"], key=f"name_{course_id}", label_visibility="collapsed")
         with cols[1]:
-            current_grade_index = 0
-            if course["grade"] in GRADE_POINTS:
-                current_grade_index = list(GRADE_POINTS.keys()).index(course["grade"])
-            
-            course["grade"] = st.selectbox(
-                "Grade", options=list(GRADE_POINTS.keys()), index=current_grade_index, key=f"grade_{course_id}", label_visibility="collapsed"
-            )
+            current_grade_index = list(GRADE_POINTS.keys()).index(course["grade"]) if course["grade"] in GRADE_POINTS else 0
+            course["grade"] = st.selectbox("Grade", options=list(GRADE_POINTS.keys()), index=current_grade_index, key=f"grade_{course_id}", label_visibility="collapsed")
         with cols[2]:
-            course["credits"] = st.number_input(
-                "Credits", min_value=0, max_value=10, value=int(course["credits"]), key=f"credits_{course_id}", label_visibility="collapsed"
-            )
+            course["credits"] = st.number_input("Credits", min_value=0, max_value=10, value=int(course["credits"]), key=f"credits_{course_id}", label_visibility="collapsed")
         with cols[3]:
-            st.button(
-                "🗑️", key=f"del_{course_id}", on_click=delete_course, args=[i, course_id]
-            )
+            st.button("🗑️", key=f"del_{course_id}", on_click=delete_course, args=[i, course_id])
 
-    # Semester-level action buttons
     st.markdown("---")
     c1, c2 = st.columns(2)
     with c1:
         st.button("➕ Add Course", key=f"add_course_{i}", on_click=add_course, args=[i])
     with c2:
         st.button("❌ Delete Semester", key=f"del_sem_{i}", on_click=delete_semester, args=[i], type="secondary")
-    
     st.markdown("<br>", unsafe_allow_html=True)
